@@ -1,61 +1,218 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Test AWS Lambda</title>
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="">
+    <meta charset="utf-8" />
+    <title>Potion Shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: system-ui, Arial, sans-serif;
+            margin: 24px;
+            color: #1f2937;
+            background-color: #bdbdbd;
+            background-image: url("https://static.wikia.nocookie.net/minecraft_gamepedia/images/7/75/Water_Bottle_JE2_BE2.png/revision/latest/thumbnail/width/360/height/360?cb=20191027055423");
+            background-repeat: no-repeat;
+            background-position: bottom right;
+        }
+
+        h1 {
+            font-size: 34px;
+            margin: 0 0 12px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #e2e8f0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #e5e7eb;
+            padding: 10px 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f3f4f6;
+        }
+
+        .actions button {
+            padding: 6px 12px;
+        }
+
+        .card {
+            max-width: 600px;
+            border: 1px solid #ffffff;
+            border-radius: 12px;
+            padding: 22px;
+            margin-top: 32px;
+        }
+
+        .field {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        input {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            width: 100%;
+        }
+
+        .status {
+            margin-top: 8px;
+            font-size: 14px;
+            color: #475569;
+        }
+
+        .empty {
+            text-align: center;
+            font-style: italic;
+            color: #94a3b8;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Simple Demo for PUT, GET, and DELETE</h1>
-    <p id="lambda-info">
-        <!-- loaded with AJAX -->
-    </p>
+    <div class="topbar">
+        <h1 style="flex:1">Potion Shop Inventory</h1>
+        <button id="btn-load">Load Potions</button>
+    </div>
 
-    <hr>
-    <button id="send-data">Send Data</button>
-    <p>Sends an example JSON object to the server with id 11111</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Potion Number</th>
+                <th>Potion Name</th>
+                <th>Potion Price</th>
+                <th>Sell Potion</th>
+            </tr>
+        </thead>
+        <tbody id="items-body">
+            <tr>
+                <td colspan="4" class="empty">Click “Load Potions to see all potions</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="card">
+        <h2>Add New Potion to Inventory</h2>
+        <form id="add-form">
+            <div class="field">
+                <label for="fld-id">Potion Number:</label>
+                <input id="fld-id" name="id" placeholder="1" required />
+            </div>
+            <div class="field">
+                <label for="fld-name">Potion Name:</label>
+                <input id="fld-name" name="name" placeholder="Strength Potion" required />
+            </div>
+            <div class="field">
+                <label for="fld-price">Potion Price:</label>
+                <input id="fld-price" name="price" type="number" placeholder="10" required />
+            </div>
+            <button type="submit">Add Potion</button>
+            <div id="add-status" class="status"></div>
+        </form>
+    </div>
+
     <script>
-        document.getElementById("send-data").onclick = function () {
-            let xhr = new XMLHttpRequest();
-            xhr.open("PUT", "Your Lambda here");
-            xhr.setRequestHeader("Content-Type", "application/json");
-            xhr.send(JSON.stringify({
-                "id": "6666666",
-                "price": 19,
-                "name": "test put value"
-            }));
+        const API_ROOT = 'https://ybymsk7mb7.execute-api.us-west-2.amazonaws.com/';
+
+        const tbody = document.getElementById('items-body');
+        const loadBtn = document.getElementById('btn-load');
+        const form = document.getElementById('add-form');
+        const status = document.getElementById('add-status');
+
+        loadBtn.addEventListener('click', loadItems);
+        form.addEventListener('submit', addItem);
+
+        async function loadItems() {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading Potions</td></tr>';
+            try {
+                const res = await fetch(`https://ybymsk7mb7.execute-api.us-west-2.amazonaws.com/items`);
+                const data = await res.json();
+                renderItems(data);
+            } catch (e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="4" class="empty">Failed to find Potions.</td></tr>';
+            }
         }
-    </script>
 
-    <button id="load-data">Load Data</button>
-    <p>Loads data from the server</p>
-    <script>
-        document.getElementById("load-data").onclick = function () {
-            let lambda = document.getElementById("lambda-info");
-            let xhr = new XMLHttpRequest();
-            xhr.addEventListener("load", function () {
-                lambda.innerHTML = xhr.response;
+        function renderItems(items) {
+            tbody.innerHTML = '';
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty">No potions found.</td></tr>';
+                return;
+            }
+            for (const item of items) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+          <td>${item.id}</td>
+          <td>${item.name}</td>
+          <td>${item.price}</td>
+          <td class="actions"><button data-id="${item.id}" class="del-btn">Sell</button></td>
+        `;
+                tbody.appendChild(tr);
+            }
+            document.querySelectorAll('.del-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteItem(btn.dataset.id));
             });
-            xhr.open("GET", "Your Lambda here");
-            xhr.send();
         }
 
-    </script>
+        async function addItem(e) {
+            e.preventDefault();
+            const id = document.getElementById('fld-id').value.trim();
+            const name = document.getElementById('fld-name').value.trim();
+            const price = Number(document.getElementById('fld-price').value);
+            try {
+                const res = await fetch(`https://ybymsk7mb7.execute-api.us-west-2.amazonaws.com/items`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, name, price })
+                });
+                if (!res.ok) throw new Error('Failed PUT');
+                form.reset();
+                loadItems();
+            } catch (e) {
+                console.error(e);
+                status.textContent = 'Error adding item';
+            }
+        }
 
-    <hr>
-    <button id="delete-data">Delete Data</button>
-    <p>Deletes a JSON object from the server with 11111</p>
-    <script>
-        document.getElementById("delete-data").onclick = function () {
-            let xhr = new XMLHttpRequest();
-            xhr.open("DELETE", "Your Lambda here");
-            xhr.setRequestHeader("Content-Type", "application/json");
-            xhr.send();
+        async function deleteItem(id) {
+            if (!confirm(`Sell potion ${id}?`)) return;
+            try {
+                const res = await fetch(`https://ybymsk7mb7.execute-api.us-west-2.amazonaws.com/items/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Failed DELETE');
+                loadItems();
+            } catch (e) {
+                console.error(e);
+                alert('Error deleting item');
+            }
         }
     </script>
 </body>
